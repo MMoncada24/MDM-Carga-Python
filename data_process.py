@@ -1,4 +1,4 @@
-from initialize import log, config, manager
+from initialize import log, config
 import pandas as pd
 import math
 import re
@@ -15,14 +15,14 @@ def brandinnovation(df, archivo):
 
 # Limpieza Comunicaciones
 def comunicaciones(df, archivo):
-    df2 = df[['desmaterialmedidacatalogo']].copy()
+    df2 = df[['desmaterialmedidacata# logo']].copy()
     df2.apply(lambda x: x[:1500])
-    df['desmaterialmedidacatalogo'] = df2['desmaterialmedidacatalogo']
+    df['desmaterialmedidacata# logo'] = df2['desmaterialmedidacata# logo']
     lista_c = config['sourcesSelect'][archivo].split()
     df = df[lista_c]
     medidas = []
     for row in df.itertuples(index=False):
-        material = row.desmaterialmedidacatalogo
+        material = row.desmaterialmedidacata# logo
         if('Medidas' in material):
             medidas.append(material[material.index('Medidas'):])
         else:
@@ -112,7 +112,7 @@ def preparar_dataframe(df, df_old, option, bd, archivo):
         frame_ins = {'codsap': saps_insertar}
         df_saps_insertar = pd.DataFrame(frame_ins).astype(str)
         df_insertar = pd.merge(df, df_saps_insertar, how='inner', on='codsap').sort_values(by=['codsap'])
-        log.info("DataFrame a insertar listo")
+        # log.info("DataFrame a insertar listo")
         return df_insertar
     elif str(option) == 'actualizar':
         # Separar data a actualizar
@@ -134,10 +134,10 @@ def preparar_dataframe(df, df_old, option, bd, archivo):
         # Iterar y crear el dataframe a actualizar
         array_actualizar = []
         nuevo_registro = False
-        ticks = manager.counter(total=len(df_new_actualizable.index), 
-            desc='Dataframe de '+archivo+' en '+bd,unit='registros',color=config['MISC'][archivo+'_color'])
+        # ticks = manager.counter(total=len(df_new_actualizable.index), 
+        #   desc='Dataframe de '+archivo+' en '+bd,unit='registros',color=config['MISC'][archivo+'_color'])
         for indice in range(0, len(df_new_actualizable.index)):
-            ticks.update()
+            # ticks.update()
             registro = dict()
             for columna in range(0, len(df_old_actualizable.columns)):
                 if df_new_actualizable.values[indice, columna] == '':
@@ -156,9 +156,9 @@ def preparar_dataframe(df, df_old, option, bd, archivo):
                 array_actualizar.append(registro)
                 nuevo_registro = False
         df_actualizar = pd.DataFrame(array_actualizar)
-        ticks.close()
+        # ticks.close()
         if df_actualizar.empty:
             df_actualizar = pd.DataFrame(columns=df.columns)
         df_actualizar = df_actualizar[df.columns]
-        log.info("DataFrame a actualizar listo")
+        # log.info("DataFrame a actualizar listo")
         return df_actualizar

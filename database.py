@@ -1,4 +1,4 @@
-from initialize import log, config, s3, ENVIRONMENT, FECHA, S3_ACCESS_KEY, S3_SECRET_KEY, manager
+from initialize import log, config, s3, ENVIRONMENT, FECHA, S3_ACCESS_KEY, S3_SECRET_KEY
 from data_process import preparar_dataframe
 from psycopg2 import sql
 from os import remove, getcwd
@@ -29,7 +29,7 @@ def Redshift(df, archivo, full):
                            port=lista_redshift[2], user=lista_redshift[3], password=lista_redshift[4],
                            options='-c search_path='+lista_redshift[5])
     cursor = con.cursor()
-    log.info("Conexion a Redshift establecida")
+    # log.info("Conexion a Redshift establecida")
 
     # Convertir la consulta en DataFrame
     query_data = "SELECT * FROM {}".format(config['redshiftTables'][archivo])
@@ -44,7 +44,7 @@ def Redshift(df, archivo, full):
     df_old_redshift.fillna('', inplace=True)
     df_old_redshift = df_old_redshift.astype(str)
     df_old_redshift = df_old_redshift[df.columns]
-    log.info("Tabla %s del Redshift leida", archivo)
+    # log.info("Tabla %s del Redshift leida", archivo)
 
     # Mantener orden destino para el COPY
     for columna_maximo in df_redshift_meta.itertuples():
@@ -84,7 +84,7 @@ def Redshift(df, archivo, full):
         cursor.execute("COPY stage_act FROM 's3://" + config['Credenciales']['S3_BUCKET_QAS'] + "/" + config['Credenciales']['S3_STAGING_PATH'] + key_act
                        + "' access_key_id '"+S3_ACCESS_KEY+"' secret_access_key '"+S3_SECRET_KEY+"' CSV;")
 
-    log.info("Dataframes de %s cargados a Tablas staging ", archivo)
+    # log.info("Dataframes de %s cargados a Tablas staging ", archivo)
 
     if not df_insertar.empty:
         # Eliminar archivo csv staging
@@ -92,14 +92,14 @@ def Redshift(df, archivo, full):
                          Key=config['Credenciales']['S3_STAGING_PATH'] + key_ins)
         remove(getcwd()+'/'+key_ins)
         # Insertar los registros nuevos
-        log.info('Insertando en RS')
+        # log.info('Insertando en RS')
         if full:
             cursor.execute(
                 "INSERT INTO MDM_FULL_staging SELECT * FROM stage_ins;")
         else:
             cursor.execute(sql.SQL("INSERT INTO {} SELECT * FROM stage_ins;").format(
                 sql.Identifier(config['redshiftTables'][archivo])))
-        log.info("Insertados %s nuevos registros de %s al Redshift",
+        log.info("Insertados %s nuevos registros de %s al Redshift ;",
                  str(len(df_insertar.index)), archivo)
         cursor.execute("DROP TABLE stage_ins;")
 
@@ -109,12 +109,12 @@ def Redshift(df, archivo, full):
                          Key=config['Credenciales']['S3_STAGING_PATH'] + key_act)
         remove(getcwd()+'/'+key_act)
         # Quitar los registros viejos
-        log.info('Actualizando en RS')
+        # log.info('Actualizando en RS')
         cursor.execute(sql.SQL("DELETE FROM {} USING stage_act WHERE {}.codsap = stage_act.codsap;").format(
             sql.Identifier(config['redshiftTables'][archivo]), sql.Identifier(config['redshiftTables'][archivo])))
         cursor.execute(sql.SQL("INSERT INTO {} SELECT * FROM stage_act;").format(
             sql.Identifier(config['redshiftTables'][archivo])))
-        log.info("Actualizados %s registros de %s al Redshift",
+        log.info("Actualizados %s registros de %s al Redshift ;",
                  str(len(df_actualizar.index)), archivo)
         cursor.execute("DROP TABLE stage_act;")
 
@@ -130,7 +130,7 @@ def Redshift(df, archivo, full):
     con.commit()
     cursor.close()
     con.close()
-    log.info("Conexion a Redshift cerrada")
+    # log.info("Conexion a Redshift cerrada")
 
 
 def Mongo(df, archivo, full):
@@ -140,8 +140,8 @@ def Mongo(df, archivo, full):
     else:
         clientRead = pymongo.MongoClient(
             config['Credenciales']['MONGO_READ_URL'])
-        log.info("Conexion a Mongo establecida")
-        log.info("Leyendo la coleccion del Mongo")
+        # log.info("Conexion a Mongo establecida")
+        # log.info("Leyendo la coleccion del Mongo")
         if full:
             old = clientRead[config['Credenciales']['MONGO_DB']]['staging_MDM_FULL'].find()
         else:
@@ -149,7 +149,7 @@ def Mongo(df, archivo, full):
         df_old = pd.DataFrame(list(old), dtype=str)
         df_old.fillna('', inplace=True)
         df_old.set_index('codsap')
-        log.info("Coleccion de Mongo leida para %s", archivo)
+        # log.info("Coleccion de Mongo leida para %s", archivo)
         clientRead.close
 
     # Alistar data frames
@@ -170,14 +170,14 @@ def Mongo(df, archivo, full):
 
     # Escribir los nuevos registros directo
     if not df_insertar.empty:
-        log.info('Insertando en Mongo')
+        # log.info('Insertando en Mongo')
         col.insert_many(df_insertar.to_dict('records'))
-        log.info("Insertados %s nuevos documentos al Mongo",
+        log.info("Insertados %s nuevos documentos al Mongo ;",
                  str(len(df_insertar.index)))
 
     # Iterar el segundo DF y actualizar los viejos docs con replace_one
     if not df_actualizar.empty:
-        log.info('Actualizando en Mongo')
+        # log.info('Actualizando en Mongo')
         bulk = col.initialize_unordered_bulk_op()
         for indice_actualizar, registro_actualizar in df_actualizar.iterrows():
             registro = dict(registro_actualizar)
@@ -185,7 +185,7 @@ def Mongo(df, archivo, full):
             bulk.find({'codsap': registro_actualizar['codsap']}).replace_one(
                 registro)
         bulk.execute()
-        log.info("Actualizados %s documentos del Mongo", indice_actualizar)
+        log.info("Actualizados %s documentos del Mongo ;", indice_actualizar)
 
     clientWrite.close
-    log.info("Conexion a Mongo cerrada")
+    # log.info("Conexion a Mongo cerrada")
