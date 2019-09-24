@@ -11,18 +11,18 @@ def brandinnovation(df, archivo):
     lista_diff = [x for x in lista_to_have if x not in df.columns]
     for column in lista_diff:
         df[column] = ""
-    return df
+    return df[lista_to_have]
 
 # Limpieza Comunicaciones
 def comunicaciones(df, archivo):
-    df2 = df[['desmaterialmedidacata# logo']].copy()
+    df2 = df[['desmaterialmedidacatalogo']].copy()
     df2.apply(lambda x: x[:1500])
-    df['desmaterialmedidacata# logo'] = df2['desmaterialmedidacata# logo']
+    df['desmaterialmedidacatalogo'] = df2['desmaterialmedidacatalogo']
     lista_c = config['sourcesSelect'][archivo].split()
     df = df[lista_c]
     medidas = []
     for row in df.itertuples(index=False):
-        material = row.desmaterialmedidacata# logo
+        material = row.desmaterialmedidacatalogo
         if('Medidas' in material):
             medidas.append(material[material.index('Medidas'):])
         else:
@@ -32,7 +32,7 @@ def comunicaciones(df, archivo):
     lista_diff = [x for x in lista_to_have if x not in df.columns]
     for column in lista_diff:
         df[column] = ""
-    return df
+    return df[lista_to_have]
 
 # Limpieza SAP
 def sap(df, archivo):
@@ -48,7 +48,7 @@ def sap(df, archivo):
     lista_diff_s = [x for x in lista_have if x not in df.columns]
     for column in lista_diff_s:
         df[column] = ""
-    return df
+    return df[lista_have]
 
 # Limpieza WebRedes
 def webredes(df, archivo):
@@ -70,11 +70,11 @@ def webredes(df, archivo):
                    deslinkvideoId003=df3['deslinkvideo003'], deslinkvideoId004=df3['deslinkvideo004'],
                    deslinkvideoId005=df3['deslinkvideo005'], desnombreproducto=df.loc[:, 'desnombreproductowebredes'])
 
-    lista_has = config['fillColumns']['columnsToHave'].split()
-    lista_diff_w = [x for x in lista_has if x not in df.columns]
+    lista_to_have = config['fillColumns']['columnsToHave'].split()
+    lista_diff_w = [x for x in lista_to_have if x not in df.columns]
     for column in lista_diff_w:
         df[column] = ""
-    return df
+    return df[lista_to_have]
 
 # Filtro Youtube
 def youtube(url):

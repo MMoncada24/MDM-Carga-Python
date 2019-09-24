@@ -11,6 +11,7 @@ def Mongo_Rename():
     col = clientRename[config['Credenciales']['MONGO_DB']]['staging_MDM_FULL']
     col_bk = clientRename[config['Credenciales']['MONGO_DB']][config['Credenciales']['MONGO_COLLECTION']]
     clientRename[config['Credenciales']['MONGO_DB']].drop_collection('bk_MDM_'+FECHA)
+    clientRename[config['Credenciales']['MONGO_DB']].drop_collection('staging_MDM_FULL')
     col_bk.rename('bk_MDM_'+FECHA)
     col.rename(config['Credenciales']['MONGO_COLLECTION'])
     col.create_index('codsap')

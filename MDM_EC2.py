@@ -11,6 +11,8 @@ def Carga(archivo):
     df.fillna('', inplace=True)
     lista_aux = config['sourcesSelect'][archivo].split()
     lista_aux.insert(0,'grupodeatributos')
+    name_aux = df.columns[0]
+    df = df.rename(columns={name_aux:'grupodeatributos'})
     df = df[lista_aux]
     for col in df.columns:
         df.loc[:,col] = df.loc[:,col].apply(lambda x: str(x).strip())
