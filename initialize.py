@@ -19,7 +19,7 @@ CARGA_FULL = False
 if len(sys.argv) > 3:
 	if sys.argv[3] == 'FULL':
 		CARGA_FULL = True
-	  log.info("Se hara una carga full ;")
+		log.info("Se hara una carga full ;")
 else:
 	log.info("Se hara una carga regular ;")
 s3 = boto3.client('s3', aws_access_key_id=S3_ACCESS_KEY, aws_secret_access_key=S3_SECRET_KEY)
