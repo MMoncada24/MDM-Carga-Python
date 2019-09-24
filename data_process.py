@@ -39,10 +39,9 @@ def sap(df, archivo):
     lista_s = config['sourcesSelect'][archivo].split()
     df = df[lista_s]
     df['desnombreproducto'] = df.loc[:, 'desproductosap']
-    ids = []
+    ids = list()
     for row in df.itertuples(index=False):
-        idstring = (row.codsap).join(
-            row.desproductosap).join(row.desgrupoarticulo)
+        idstring = str(row.codsap)+str(row.desproductosap)+' '+str(row.desgrupoarticulo)
         ids.append(idstring)
     df['id'] = ids
     lista_have = config['fillColumns']['columnsToHave'].split()
@@ -89,9 +88,9 @@ def youtube(url):
 
 
 def preparar_dataframe(df, df_old, option, bd, archivo):
-    # Ajuste a string forzado
-    df.codsap = df.codsap.astype(str)
-    df_old.codsap = df_old.codsap.astype(str)
+    # Atajo
+    if df_old.empty and option=='actualizar':
+        return pd.DataFrame(columns=df.columns)
 
     # Identificar registros a insertar y actualizar
     saps_new = df.loc[:, 'codsap']
@@ -122,8 +121,9 @@ def preparar_dataframe(df, df_old, option, bd, archivo):
             df, df_saps_actualizar, how='inner', on='codsap').sort_values(by=['codsap'])
         df_old_actualizable = pd.merge(
             df_old, df_saps_actualizar, how='inner', on='codsap').sort_values(by=['codsap'])
-        df_new_actualizable.set_index('codsap')
-        df_old_actualizable.set_index('codsap')
+        df_new_actualizable = df_new_actualizable.reset_index(drop=True)
+        if not df_old_actualizable.empty:
+            df_old_actualizable = df_old_actualizable.reset_index(drop=True)
         if str(bd) == 'Mongo':
             df_new_actualizable.insert(
                 loc=0, column='_id', value=df_old_actualizable.loc[:, '_id'])
@@ -134,22 +134,24 @@ def preparar_dataframe(df, df_old, option, bd, archivo):
         # Iterar y crear el dataframe a actualizar
         array_actualizar = []
         nuevo_registro = False
+        iterador_aux = df_old_actualizable.itertuples(index=False)
         # ticks = manager.counter(total=len(df_new_actualizable.index), 
         #   desc='Dataframe de '+archivo+' en '+bd,unit='registros',color=config['MISC'][archivo+'_color'])
-        for indice in range(0, len(df_new_actualizable.index)):
+        for fila in df_new_actualizable.itertuples(index=False):
             # ticks.update()
+            tupla_old = next(iterador_aux)
             registro = dict()
-            for columna in range(0, len(df_old_actualizable.columns)):
-                if df_new_actualizable.values[indice, columna] == '':
-                    registro[df_new_actualizable.columns[columna]] = df_old_actualizable.values[indice, columna]
+            for columna_num in range(0, len(df_old_actualizable.columns)):
+                if fila[columna_num] == '':
+                    registro[df_new_actualizable.columns[columna_num]] = tupla_old[columna_num]
                 else:
-                    registro[df_new_actualizable.columns[columna]] = df_new_actualizable.values[indice, columna]
-                    if str(df_new_actualizable.values[indice, columna]) != str(df_old_actualizable.values[indice, columna]):
+                    registro[df_new_actualizable.columns[columna_num]] = fila[columna_num]
+                    if str(fila[columna_num]) != str(tupla_old[columna_num]):
                         try:
-                            a = float(df_new_actualizable.values[indice, columna])
-                            b = float(df_old_actualizable.values[indice, columna])
+                            a = float(fila[columna_num])
+                            b = float(tupla_old[columna_num])
                             if math.isclose(a,b,rel_tol=1e-5):
-                                nothing
+                                pass
                         except:
                             nuevo_registro = True
             if nuevo_registro:

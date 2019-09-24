@@ -148,7 +148,8 @@ def Mongo(df, archivo, full):
             old = clientRead[config['Credenciales']['MONGO_DB']][config['Credenciales']['MONGO_COLLECTION']].find()
         df_old = pd.DataFrame(list(old), dtype=str)
         df_old.fillna('', inplace=True)
-        df_old.set_index('codsap')
+        if df_old.empty:
+            df_old = pd.DataFrame(columns=df.columns, dtype=str)
         # log.info("Coleccion de Mongo leida para %s", archivo)
         clientRead.close
 
