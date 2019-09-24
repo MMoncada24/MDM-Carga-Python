@@ -10,8 +10,8 @@ log.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=log.IN
 log.getLogger("botocore.vendored.requests.packages.urllib3").setLevel(log.WARNING)
 config = cfg.ConfigParser()
 config.read('configuracion.ini')
-ENVIRONMENT = 'QAS' #sys.argv[1]
-FECHA = '20190820' #sys.argv[2]
+ENVIRONMENT = sys.argv[1]
+FECHA = sys.argv[2]
 S3_ACCESS_KEY = config['Credenciales']['S3_ACCESS_KEY']
 S3_SECRET_KEY = config['Credenciales']['S3_SECRET_KEY']
 # manager = enlighten.get_manager()
