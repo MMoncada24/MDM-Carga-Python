@@ -45,7 +45,7 @@ for archivo in lista_archivos:
         carpeta = config[ENVIRONMENT+"_Path"][archivo]
         ruta = carpeta + "-" + FECHA + ".csv"
         s3.download_file(config['Credenciales_'+ENVIRONMENT]
-                         ['S3_BUCKET_QAS'], ruta, archivo+'.csv')
+                         ['S3_BUCKET'], ruta, archivo+'.csv')
         subidos[archivo] = True
         log.info("Archivo %s encontrado ;", archivo)
     except Exception as error:

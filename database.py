@@ -62,7 +62,7 @@ def Redshift(df, archivo, full):
     if not df_insertar.empty:
         # Llevar dataframe a S3
         df_insertar.to_csv(getcwd()+'/'+key_ins, index=None, header=False, encoding='utf-8')
-        s3.upload_file(getcwd()+'/'+key_ins, config['Credenciales_'+ENVIRONMENT]['S3_BUCKET_QAS'],
+        s3.upload_file(getcwd()+'/'+key_ins, config['Credenciales_'+ENVIRONMENT]['S3_BUCKET'],
                        config['Credenciales_'+ENVIRONMENT]['S3_STAGING_PATH'] + key_ins)
         cursor.execute(sql.SQL("CREATE TEMPORARY TABLE stage_ins(LIKE {})").format(
             sql.Identifier(config['redshiftTables'][archivo])))
@@ -70,7 +70,7 @@ def Redshift(df, archivo, full):
             cursor.execute("DROP TABLE IF EXISTS MDM_FULL_staging")
             cursor.execute(sql.SQL("CREATE TEMPORARY TABLE MDM_FULL_staging(LIKE {})").format(
                 sql.Identifier(config['redshiftTables'][archivo])))
-        cursor.execute("COPY stage_ins FROM 's3://" + config['Credenciales_'+ENVIRONMENT]['S3_BUCKET_QAS'] + "/" 
+        cursor.execute("COPY stage_ins FROM 's3://" + config['Credenciales_'+ENVIRONMENT]['S3_BUCKET'] + "/" 
             + config['Credenciales_'+ENVIRONMENT]['S3_STAGING_PATH'] + key_ins
             + "' IAM_ROLE 'arn:aws:iam::820233355588:role/"+ config['Credenciales_'+ENVIRONMENT]['ROL_AWS'] +"' CSV;")
 
@@ -78,11 +78,11 @@ def Redshift(df, archivo, full):
         # Llevar dataframe a S3
         df_actualizar.to_csv(getcwd()+'/'+key_act, index=None,
                              header=False, encoding='utf-8')
-        s3.upload_file(getcwd()+'/'+key_act, config['Credenciales_'+ENVIRONMENT]['S3_BUCKET_QAS'],
+        s3.upload_file(getcwd()+'/'+key_act, config['Credenciales_'+ENVIRONMENT]['S3_BUCKET'],
                        config['Credenciales_'+ENVIRONMENT]['S3_STAGING_PATH'] + key_act)
         cursor.execute(sql.SQL("CREATE TEMPORARY TABLE stage_act(LIKE {})").format(
             sql.Identifier(config['redshiftTables'][archivo])))
-        cursor.execute("COPY stage_act FROM 's3://" + config['Credenciales_'+ENVIRONMENT]['S3_BUCKET_QAS'] + "/" +
+        cursor.execute("COPY stage_act FROM 's3://" + config['Credenciales_'+ENVIRONMENT]['S3_BUCKET'] + "/" +
             config['Credenciales_'+ENVIRONMENT]['S3_STAGING_PATH'] + key_act +
             "' IAM_ROLE 'arn:aws:iam::820233355588:role/"+ config['Credenciales_'+ENVIRONMENT]['ROL_AWS'] + "' CSV;")
 
@@ -90,7 +90,7 @@ def Redshift(df, archivo, full):
 
     if not df_insertar.empty:
         # Eliminar archivo csv staging
-        #s3.delete_object(Bucket=config['Credenciales_'+ENVIRONMENT]['S3_BUCKET_QAS'],
+        #s3.delete_object(Bucket=config['Credenciales_'+ENVIRONMENT]['S3_BUCKET'],
                          #Key=config['Credenciales_'+ENVIRONMENT]['S3_STAGING_PATH'] + key_ins)
         remove(getcwd()+'/'+key_ins)
         # Insertar los registros nuevos
@@ -107,7 +107,7 @@ def Redshift(df, archivo, full):
 
     if not df_actualizar.empty:
         # Eliminar archivo csv staging
-        #s3.delete_object(Bucket=config['Credenciales_'+ENVIRONMENT]['S3_BUCKET_QAS'],
+        #s3.delete_object(Bucket=config['Credenciales_'+ENVIRONMENT]['S3_BUCKET'],
                          #Key=config['Credenciales_'+ENVIRONMENT]['S3_STAGING_PATH'] + key_act)
         remove(getcwd()+'/'+key_act)
         # Quitar los registros viejos
