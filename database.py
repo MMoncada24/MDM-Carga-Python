@@ -1,4 +1,4 @@
-from initialize import log, config, s3, ENVIRONMENT, FECHA, S3_ACCESS_KEY, S3_SECRET_KEY
+from initialize import log, config, s3, ENVIRONMENT, FECHA
 from data_process import preparar_dataframe
 from psycopg2 import sql
 from os import remove, getcwd
@@ -7,13 +7,13 @@ import psycopg2
 import pymongo
 
 def Mongo_Rename():
-    clientRename = pymongo.MongoClient(config['Credenciales']['MONGO_WRITE_URL'])
-    col = clientRename[config['Credenciales']['MONGO_DB']]['staging_MDM_FULL']
-    col_bk = clientRename[config['Credenciales']['MONGO_DB']][config['Credenciales']['MONGO_COLLECTION']]
-    clientRename[config['Credenciales']['MONGO_DB']].drop_collection('bk_MDM_'+FECHA)
-    clientRename[config['Credenciales']['MONGO_DB']].drop_collection('staging_MDM_FULL')
+    clientRename = pymongo.MongoClient(config['Credenciales_'+ENVIRONMENT]['MONGO_WRITE_URL'])
+    col = clientRename[config['Credenciales_'+ENVIRONMENT]['MONGO_DB']]['staging_MDM_FULL']
+    col_bk = clientRename[config['Credenciales_'+ENVIRONMENT]['MONGO_DB']][config['Credenciales_'+ENVIRONMENT]['MONGO_COLLECTION']]
+    clientRename[config['Credenciales_'+ENVIRONMENT]['MONGO_DB']].drop_collection('bk_MDM_'+FECHA)
+    clientRename[config['Credenciales_'+ENVIRONMENT]['MONGO_DB']].drop_collection('staging_MDM_FULL')
     col_bk.rename('bk_MDM_'+FECHA)
-    col.rename(config['Credenciales']['MONGO_COLLECTION'])
+    col.rename(config['Credenciales_'+ENVIRONMENT]['MONGO_COLLECTION'])
     col.create_index('codsap')
     clientRename.close()
 
@@ -35,7 +35,7 @@ def Redshift(df, archivo, full):
     # Convertir la consulta en DataFrame
     query_data = "SELECT * FROM {}".format(config['redshiftTables'][archivo])
     query_metadata = "SELECT column_name, character_maximum_length AS largo FROM information_schema.columns WHERE table_name='{}' AND table_schema='{}' ORDER BY ordinal_position;".format(
-        config['redshiftTables'][archivo], config['Credenciales']['REDSHIFT_SCHEMA'])
+        config['redshiftTables'][archivo], config['Credenciales_'+ENVIRONMENT]['REDSHIFT_SCHEMA'])
     if not full:
         df_old_redshift = pd.read_sql_query(query_data, con)
     else:
@@ -62,35 +62,36 @@ def Redshift(df, archivo, full):
     if not df_insertar.empty:
         # Llevar dataframe a S3
         df_insertar.to_csv(getcwd()+'/'+key_ins, index=None, header=False, encoding='utf-8')
-        s3.upload_file(getcwd()+'/'+key_ins, config['Credenciales']['S3_BUCKET_QAS'],
-                       config['Credenciales']['S3_STAGING_PATH'] + key_ins)
+        s3.upload_file(getcwd()+'/'+key_ins, config['Credenciales_'+ENVIRONMENT]['S3_BUCKET_QAS'],
+                       config['Credenciales_'+ENVIRONMENT]['S3_STAGING_PATH'] + key_ins)
         cursor.execute(sql.SQL("CREATE TEMPORARY TABLE stage_ins(LIKE {})").format(
             sql.Identifier(config['redshiftTables'][archivo])))
         if full:
             cursor.execute("DROP TABLE IF EXISTS MDM_FULL_staging")
-            cursor.execute(sql.SQL("CREATE TABLE MDM_FULL_staging(LIKE {})").format(
+            cursor.execute(sql.SQL("CREATE TEMPORARY TABLE MDM_FULL_staging(LIKE {})").format(
                 sql.Identifier(config['redshiftTables'][archivo])))
-        cursor.execute("COPY stage_ins FROM 's3://" + config['Credenciales']['S3_BUCKET_QAS'] + "/" 
-            + config['Credenciales']['S3_STAGING_PATH'] + key_ins
-            + "' access_key_id '"+S3_ACCESS_KEY+"' secret_access_key '"+S3_SECRET_KEY+"' CSV;")
+        cursor.execute("COPY stage_ins FROM 's3://" + config['Credenciales_'+ENVIRONMENT]['S3_BUCKET_QAS'] + "/" 
+            + config['Credenciales_'+ENVIRONMENT]['S3_STAGING_PATH'] + key_ins
+            + "' IAM_ROLE 'arn:aws:iam::820233355588:role/"+ config['Credenciales_'+ENVIRONMENT]['ROL_AWS'] +"' CSV;")
 
     if not df_actualizar.empty:
         # Llevar dataframe a S3
         df_actualizar.to_csv(getcwd()+'/'+key_act, index=None,
                              header=False, encoding='utf-8')
-        s3.upload_file(getcwd()+'/'+key_act, config['Credenciales']['S3_BUCKET_QAS'],
-                       config['Credenciales']['S3_STAGING_PATH'] + key_act)
+        s3.upload_file(getcwd()+'/'+key_act, config['Credenciales_'+ENVIRONMENT]['S3_BUCKET_QAS'],
+                       config['Credenciales_'+ENVIRONMENT]['S3_STAGING_PATH'] + key_act)
         cursor.execute(sql.SQL("CREATE TEMPORARY TABLE stage_act(LIKE {})").format(
             sql.Identifier(config['redshiftTables'][archivo])))
-        cursor.execute("COPY stage_act FROM 's3://" + config['Credenciales']['S3_BUCKET_QAS'] + "/" + config['Credenciales']['S3_STAGING_PATH'] + key_act
-                       + "' access_key_id '"+S3_ACCESS_KEY+"' secret_access_key '"+S3_SECRET_KEY+"' CSV;")
+        cursor.execute("COPY stage_act FROM 's3://" + config['Credenciales_'+ENVIRONMENT]['S3_BUCKET_QAS'] + "/" +
+            config['Credenciales_'+ENVIRONMENT]['S3_STAGING_PATH'] + key_act +
+            "' IAM_ROLE 'arn:aws:iam::820233355588:role/"+ config['Credenciales_'+ENVIRONMENT]['ROL_AWS'] + "' CSV;")
 
     # log.info("Dataframes de %s cargados a Tablas staging ", archivo)
 
     if not df_insertar.empty:
         # Eliminar archivo csv staging
-        s3.delete_object(Bucket=config['Credenciales']['S3_BUCKET_QAS'],
-                         Key=config['Credenciales']['S3_STAGING_PATH'] + key_ins)
+        #s3.delete_object(Bucket=config['Credenciales_'+ENVIRONMENT]['S3_BUCKET_QAS'],
+                         #Key=config['Credenciales_'+ENVIRONMENT]['S3_STAGING_PATH'] + key_ins)
         remove(getcwd()+'/'+key_ins)
         # Insertar los registros nuevos
         # log.info('Insertando en RS')
@@ -106,8 +107,8 @@ def Redshift(df, archivo, full):
 
     if not df_actualizar.empty:
         # Eliminar archivo csv staging
-        s3.delete_object(Bucket=config['Credenciales']['S3_BUCKET_QAS'],
-                         Key=config['Credenciales']['S3_STAGING_PATH'] + key_act)
+        #s3.delete_object(Bucket=config['Credenciales_'+ENVIRONMENT]['S3_BUCKET_QAS'],
+                         #Key=config['Credenciales_'+ENVIRONMENT]['S3_STAGING_PATH'] + key_act)
         remove(getcwd()+'/'+key_act)
         # Quitar los registros viejos
         # log.info('Actualizando en RS')
@@ -121,10 +122,8 @@ def Redshift(df, archivo, full):
 
     # Ajustes de carga full
     if full:
-        cursor.execute(sql.SQL("DROP TABLE IF EXISTS {}").format(sql.Identifier('mdm_'+archivo+'_bk_'+FECHA)))
-        cursor.execute(sql.SQL("ALTER TABLE {} RENAME TO {}").format(
-            sql.Identifier(config['redshiftTables'][archivo]), sql.Identifier('mdm_'+archivo+'_bk_'+FECHA)))
-        cursor.execute(sql.SQL("ALTER TABLE MDM_FULL_staging RENAME TO {}").format(
+        cursor.execute(sql.SQL("TRUNCATE {}").format(sql.Identifier(config['redshiftTables'][archivo])))
+        cursor.execute(sql.SQL("INSERT INTO {} SELECT * FROM MDM_FULL_staging").format(
             sql.Identifier(config['redshiftTables'][archivo])))
 
     # Cerrar conexion a redshift
@@ -134,20 +133,20 @@ def Redshift(df, archivo, full):
     # log.info("Conexion a Redshift cerrada")
 
 
-def Mongo(df, archivo, full):
+def Mongo(df, archivo, full, primera_carga):
     # Leer situacion actual del Mongo
-    if full and archivo == 'comunicaciones':
+    if full and primera_carga:
         df_old = pd.DataFrame(columns=df.columns)
     else:
         clientRead = pymongo.MongoClient(
-            config['Credenciales']['MONGO_READ_URL'])
+            config['Credenciales_'+ENVIRONMENT]['MONGO_READ_URL'])
         # log.info("Conexion a Mongo establecida")
         # log.info("Leyendo la coleccion del Mongo")
         if full:
-            old = clientRead[config['Credenciales']['MONGO_DB']]['staging_MDM_FULL'].find()
+            old = clientRead[config['Credenciales_'+ENVIRONMENT]['MONGO_DB']]['staging_MDM_FULL'].find()
         else:
-            old = clientRead[config['Credenciales']['MONGO_DB']][config['Credenciales']['MONGO_COLLECTION']].find()
-        df_old = pd.DataFrame(list(old), dtype=str)
+            old = clientRead[config['Credenciales_'+ENVIRONMENT]['MONGO_DB']][config['Credenciales_'+ENVIRONMENT]['MONGO_COLLECTION']].find()
+        df_old = pd.DataFrame(list(old))
         df_old.fillna('', inplace=True)
         if df_old.empty:
             df_old = pd.DataFrame(columns=df.columns, dtype=str)
@@ -156,19 +155,19 @@ def Mongo(df, archivo, full):
 
     # Alistar data frames
     df_insertar = preparar_dataframe(df, df_old, 'insertar', 'Mongo',archivo)
-    if full and archivo == 'comunicaciones':
+    if full and primera_carga:
         df_actualizar = df_old
     else:
         df_actualizar = preparar_dataframe(df, df_old, 'actualizar', 'Mongo',archivo)
 
     # Preparar la subida al mongo
-    clientWrite = pymongo.MongoClient(config['Credenciales']['MONGO_WRITE_URL'])
+    clientWrite = pymongo.MongoClient(config['Credenciales_'+ENVIRONMENT]['MONGO_WRITE_URL'])
     if full:
-        if archivo == 'comunicaciones':
-            clientWrite[config['Credenciales']['MONGO_DB']].drop_collection('staging_MDM_FULL')
-        col = clientWrite[config['Credenciales']['MONGO_DB']]['staging_MDM_FULL']
+        if primera_carga:
+            clientWrite[config['Credenciales_'+ENVIRONMENT]['MONGO_DB']].drop_collection('staging_MDM_FULL')
+        col = clientWrite[config['Credenciales_'+ENVIRONMENT]['MONGO_DB']]['staging_MDM_FULL']
     else:
-        col = clientWrite[config['Credenciales']['MONGO_DB']][config['Credenciales']['MONGO_COLLECTION']]
+        col = clientWrite[config['Credenciales_'+ENVIRONMENT]['MONGO_DB']][config['Credenciales_'+ENVIRONMENT]['MONGO_COLLECTION']]
 
     # Escribir los nuevos registros directo
     if not df_insertar.empty:

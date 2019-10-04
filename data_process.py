@@ -121,15 +121,23 @@ def preparar_dataframe(df, df_old, option, bd, archivo):
             df, df_saps_actualizar, how='inner', on='codsap').sort_values(by=['codsap'])
         df_old_actualizable = pd.merge(
             df_old, df_saps_actualizar, how='inner', on='codsap').sort_values(by=['codsap'])
+        # Estandarizar Data
         df_new_actualizable = df_new_actualizable.reset_index(drop=True)
         if not df_old_actualizable.empty:
             df_old_actualizable = df_old_actualizable.reset_index(drop=True)
         if str(bd) == 'Mongo':
-            df_new_actualizable.insert(
-                loc=0, column='_id', value=df_old_actualizable.loc[:, '_id'])
+            df_new_actualizable.insert(loc=0, column='_id', value=df_old_actualizable.loc[:, '_id'])
         for colu in df_new_actualizable:
             if colu not in df_old_actualizable:
                 df_old_actualizable[colu] = df_new_actualizable.loc[:, colu]
+        
+        # Recuperar orden (MONGO)
+        if bd == 'Mongo':
+            lista_orden = config['fillColumns']['columnsToHave'].split()
+            lista_orden.insert(0,'_id')
+            df_new_actualizable = df_new_actualizable[lista_orden]
+            df_old_actualizable = df_old_actualizable[lista_orden]
+            lista_orden.remove('_id')
 
         # Iterar y crear el dataframe a actualizar
         array_actualizar = []
@@ -161,6 +169,9 @@ def preparar_dataframe(df, df_old, option, bd, archivo):
         # ticks.close()
         if df_actualizar.empty:
             df_actualizar = pd.DataFrame(columns=df.columns)
-        df_actualizar = df_actualizar[df.columns]
+        elif bd=='Mongo':
+            df_actualizar = df_actualizar[lista_orden]
+        else:
+            df_actualizar = df_actualizar[df.columns]
         # log.info("DataFrame a actualizar listo")
         return df_actualizar

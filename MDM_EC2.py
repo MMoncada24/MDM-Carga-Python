@@ -1,4 +1,4 @@
-from initialize import log, config, s3, FECHA, ENVIRONMENT, CARGA_FULL
+from initialize import log, config, s3, FECHA, ENVIRONMENT, CARGA_FULL, primera_carga
 import pandas as pd
 import data_process
 import database
@@ -39,12 +39,12 @@ def Reglas(df, archivo):
 subidos = dict()
 realiza_trabajo = False
 log.info(config['MISC']['separador'].format('Inicio') + ';')
-lista_archivos = config['Credenciales']['ARCHIVOS'].split()
+lista_archivos = config['Credenciales_'+ENVIRONMENT]['ARCHIVOS'].split()
 for archivo in lista_archivos:
     try:
         carpeta = config[ENVIRONMENT+"_Path"][archivo]
         ruta = carpeta + "-" + FECHA + ".csv"
-        s3.download_file(config['Credenciales']
+        s3.download_file(config['Credenciales_'+ENVIRONMENT]
                          ['S3_BUCKET_QAS'], ruta, archivo+'.csv')
         subidos[archivo] = True
         log.info("Archivo %s encontrado ;", archivo)
@@ -60,7 +60,8 @@ for archivo in lista_archivos:
         Data_init = Carga(archivo)
         database.Redshift(Data_init, archivo, CARGA_FULL)
         Data_fin = Reglas(Data_init, archivo)
-        database.Mongo(Data_fin, archivo, CARGA_FULL)
+        database.Mongo(Data_fin, archivo, CARGA_FULL, primera_carga)
+        primera_carga = False
 
 # Mongo FULL
 if CARGA_FULL and realiza_trabajo:
