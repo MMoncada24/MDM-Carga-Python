@@ -11,7 +11,6 @@ def Mongo_Rename():
     col = clientRename[config['Credenciales_'+ENVIRONMENT]['MONGO_DB']]['staging_MDM_FULL']
     col_bk = clientRename[config['Credenciales_'+ENVIRONMENT]['MONGO_DB']][config['Credenciales_'+ENVIRONMENT]['MONGO_COLLECTION']]
     clientRename[config['Credenciales_'+ENVIRONMENT]['MONGO_DB']].drop_collection('bk_MDM_'+FECHA)
-    clientRename[config['Credenciales_'+ENVIRONMENT]['MONGO_DB']].drop_collection('staging_MDM_FULL')
     col_bk.rename('bk_MDM_'+FECHA)
     col.rename(config['Credenciales_'+ENVIRONMENT]['MONGO_COLLECTION'])
     col.create_index('codsap')
@@ -153,13 +152,6 @@ def Mongo(df, archivo, full, primera_carga):
         # log.info("Coleccion de Mongo leida para %s", archivo)
         clientRead.close
 
-    # Alistar data frames
-    df_insertar = preparar_dataframe(df, df_old, 'insertar', 'Mongo',archivo)
-    if full and primera_carga:
-        df_actualizar = df_old
-    else:
-        df_actualizar = preparar_dataframe(df, df_old, 'actualizar', 'Mongo',archivo)
-
     # Preparar la subida al mongo
     clientWrite = pymongo.MongoClient(config['Credenciales_'+ENVIRONMENT]['MONGO_WRITE_URL'])
     if full:
@@ -170,23 +162,31 @@ def Mongo(df, archivo, full, primera_carga):
         col = clientWrite[config['Credenciales_'+ENVIRONMENT]['MONGO_DB']][config['Credenciales_'+ENVIRONMENT]['MONGO_COLLECTION']]
 
     # Escribir los nuevos registros directo
+    df_insertar = preparar_dataframe(df, df_old, 'insertar', 'Mongo',archivo)
     if not df_insertar.empty:
-        # log.info('Insertando en Mongo')
         col.insert_many(df_insertar.to_dict('records'))
         log.info("Insertados %s nuevos documentos al Mongo ;",
                  str(len(df_insertar.index)))
 
-    # Iterar el segundo DF y actualizar los viejos docs con replace_one
-    if not df_actualizar.empty:
-        # log.info('Actualizando en Mongo')
-        bulk = col.initialize_unordered_bulk_op()
-        for indice_actualizar, registro_actualizar in df_actualizar.iterrows():
-            registro = dict(registro_actualizar)
-            registro.pop('_id', None)
-            bulk.find({'codsap': registro_actualizar['codsap']}).replace_one(
-                registro)
-        bulk.execute()
-        log.info("Actualizados %s documentos del Mongo ;", indice_actualizar)
+    if full and primera_carga:
+        df_actualizar = df_old
+    else:
+        # Dividir data frame para optimizar
+        divisiones = int(len(df.index)//1000)
+        for division in range(divisiones):
+            df_actualizar = preparar_dataframe(df.iloc[division*1000 : (division+1)*1000], df_old
+                , 'actualizar', 'Mongo',archivo)
+
+            # Iterar el segundo DF y actualizar los viejos docs con replace_one
+            if not df_actualizar.empty:
+                bulk = col.initialize_unordered_bulk_op()
+                for indice_actualizar, registro_actualizar in df_actualizar.iterrows():
+                    registro = dict(registro_actualizar)
+                    registro.pop('_id', None)
+                    bulk.find({'codsap': registro_actualizar['codsap']}).replace_one(
+                        registro)
+                bulk.execute()
+                log.info("Actualizados %s documentos del Mongo ;", indice_actualizar)
+            log.info(division,' / ',divisiones)
 
     clientWrite.close
-    # log.info("Conexion a Mongo cerrada")
